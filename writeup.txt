@@ -1,0 +1,12 @@
+1.b
+113 steps: Point after epoch 113: array([0.90005234, 1.        ])
+1.c
+0.12
+1.d
+0.11: 10 iterations to get optimum (Point after epoch 9: array([0.91664224, 0.93571111]))
+
+2
+step size: 1.0 go to infinity
+step size: 
+
+
