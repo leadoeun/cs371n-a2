@@ -64,12 +64,15 @@ class NNModule(nn.Module):
         :return: an [out]-sized tensor of log probabilities. (In general your network can be set up to return either log
         probabilities or a tuple of (loss, log probability) if you want to pass in y to this function as well
         """
+        # print(self.V(x))
+        # print(self.W(self.g(self.V(x))).shape)
 
         return self.log_softmax(self.W(self.g(self.V(x)))) 
     
     def init_embedding(self, embedding):
         return embedding.get_initialized_embedding_layer()
-
+    def get_loss(self):
+        return nn.NLLLoss()
 
 
 
@@ -129,6 +132,17 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
     :param word_embeddings: set of loaded word embeddings
     :return: A trained NeuralSentimentClassifier model
     """
+    # indexer = Indexer()
+    # for i, sentence in enumerate(train_exs):
+    #     for word in sentence.words:
+    #         if indexer.contains(word):
+    #             continue
+    #         else:
+    #             indexer.add_and_get_index(word)
+    
+
+    # inp = len(indexer)
+
 
     inp = 0
     if args.word_vecs_path == 'data/glove.6B.50d-relativized.txt':
@@ -136,20 +150,43 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
     else:
         inp = 300
 
-    epochs = 30
-    learning_rate = 0.001
+    
+
+    epochs = 100
+    learning_rate = 0.0001
     embedding_size = 100
     num_class = 2
     batch_size = args.batch_size
+    
+    
 
     ffnn = NNModule(inp, embedding_size, num_class, word_embeddings)
     embedding = ffnn.init_embedding(word_embeddings)
+    cal_loss = ffnn.get_loss()
+
+
+            
+    
+    
 
     optimizer = optim.Adam(ffnn.parameters(), lr=learning_rate)
+    # random.seed(1)
     for epoch in range(0, epochs):
         x = []
         y = []
         random.shuffle(train_exs)
+        
+        # for i, sentence in enumerate(train_exs):
+        #     x_temp = []
+        #     for word in sentence.words:
+        #         idx = word_embeddings.word_indexer.index_of(word)
+        #         if idx == -1 :
+        #             idx = word_embeddings.word_indexer.index_of("UNK")
+        #         x_temp.append(idx)
+        #     x_temp = torch.LongTensor(x_temp)
+        #     x_temp = embedding(x_temp)
+        #     x.append(x_temp.mean(dim=0))
+        #     y.append(sentence.label)
 
         for i in range(0, len(train_exs), batch_size):
             x_temp = []
@@ -168,35 +205,80 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
                     batch_temp.append(idx)
                 while len(batch_temp) < max:
                     batch_temp.append(word_embeddings.word_indexer.index_of("PAD"))
-                x_temp.append(batch_temp)         
+                
+                # batch_temp = torch.LongTensor(batch_temp)
+                # batch_temp = embedding(batch_temp)
+                # print(batch_temp)
+                # x_temp.append(batch_temp.mean(dim=0).tolist())
+                x_temp.append(batch_temp)
+                
                 y_temp.append(sentence.label)
+            # if i==0: print(x_temp)
             x_temp = torch.LongTensor(x_temp)
             x_temp = embedding(x_temp)
+            # if i==0: print(x_temp.shape)
             x_temp = torch.mean(x_temp, dim=1)
+
+            # if i==0: print(x_temp)
+            # print(x_temp.shape)
+            # print(x_temp)
+            # if i==0: print(x_temp)
             if batch_size==1:
                 x.append(x_temp[0])
             else:
                 x.append(x_temp)
             y.append(y_temp)
+                # batch_temp = torch.LongTensor(batch_temp)
+                # batch_temp = embedding(batch_temp)
+                # x_temp.append(batch_temp.mean(dim=0))
+            #     x_temp.append(batch_temp)
+            #     y_temp.append(sentence.label)
+            # x_temp = torch.LongTensor(x_temp)
 
+            # x_temp = embedding(x_temp)
+            
+            # x.append(x_temp.mean(dim=0))
+            # if i==0: print(x[0].shape)
+            # y.append(y_temp)
+
+        
+
+        
+        
         tot_loss = 0.0
         for i in range(0, len(x)):
             
             cur_x = x[i]
+            # if i==0: print(cur_x)
+            # print(cur_x)
             cur_y = y[i]
-
+            # print(cur_y)
 
             y_onehot = torch.zeros((batch_size, num_class))
 
             for j in range(0, batch_size):
                 y_onehot[j].scatter_(0, torch.from_numpy(np.asarray(cur_y[j],dtype=np.int64)), 1)
 
+            # y_onehot.scatter_(0, torch.from_numpy(np.asarray(cur_y,dtype=np.int64)), 1)
+            # print(y_onehot)
             
             
             ffnn.zero_grad()
             log_probs = ffnn.forward(cur_x)
-            loss = torch.mean(torch.mul(torch.neg(log_probs), y_onehot))
+            # loss = 0
 
+            # loss = torch.neg(log_probs).dot(y_onehot)
+            # for j in range(0, batch_size):
+            #     print(log_probs)
+            #     print(y_onehot)
+            #     loss += cal_loss(log_probs[j], y_onehot[j])
+            loss = torch.mean(torch.matmul(torch.neg(log_probs), torch.transpose(y_onehot, 0, 1)))
+            
+            # if i==0:
+            #     print(log_probs)
+            #     print(y_onehot)
+            #     print(loss)
+            
             
             tot_loss += loss
             loss.backward()

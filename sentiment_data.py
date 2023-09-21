@@ -140,8 +140,9 @@ def read_word_embeddings(embeddings_file: str) -> WordEmbeddings:
             space_idx = line.find(' ')
             word = line[:space_idx]
             numbers = line[space_idx+1:]
-            float_numbers = [float(number_str) for number_str in numbers.split()]
-            vector = np.array(float_numbers)
+            # float_numbers = [float(number_str) for number_str in numbers.split()]
+            vector = np.array(np.random.uniform(-1, 1, 300))
+            # vector = np.array(float_numbers)
             word_indexer.add_and_get_index(word)
             # Append the PAD and UNK vectors to start. Have to do this weirdly because we need to read the first line
             # of the file to see what the embedding dim is

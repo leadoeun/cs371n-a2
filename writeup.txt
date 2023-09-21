@@ -1,5 +1,5 @@
 1.b
-113 steps: Point after epoch 113: array([0.90005234, 1.        ])
+113 steps(114 if counted starting from 1): Point after epoch 113: array([0.90005234, 1.        ])
 1.c
 0.12
 1.d
@@ -9,4 +9,85 @@
 step size: 1.0 go to infinity
 step size: 
 
+3. a
 
+I went through the sentences one by one and got the appropriate embeddings for that sentence. Then, I averaged the embeddings for each words to form a single tensor of shape 1 X (embedding size, either 50 or 300). Those tensors were passed forward, and the loss was calculated. Backward pass was called on loss. This was repeated over each sentences on the train set for each epochs. 
+
+number of epochs: 30
+size of hidden layer: 100
+embeddings: 300d
+optimizer - Adam
+nonlinearity: sigmoid
+initialization: used returned embedding from get_initialized_embedding_layer
+result: 
+{
+  "dev_acc": 0.7717889908256881,
+  "dev_f1": 0.77665544332211,
+  "execution_time": 89.36604690551758,
+  "output": "Accuracy: 673 / 872 = 0.771789;\nPrecision (fraction of predicted positives that are correct): 346 / 447 = 0.774049;\nRecall (fraction of true positives predicted correctly): 346 / 444 = 0.779279;\nF1 (harmonic mean of precision and recall): 0.776655;\n"
+}
+
+3. b
+One batch contains batch_size number of sentences. I got the length of the longest sentence in the batch and filled the shorter sentences with padding. Each batch was embedded and averaged according words, resulting in a tensor with shape (batch size) X (embedding size, either 50 or 300). Then, this was forward passed. The resulting loss for each sentence was calculated and averaged to reflect the batching. This averaged loss was passed backward. 
+With batch size of 4 and everything else same as non-batching, the time taken decreased by about 1/3 - 1/4 and the accuracy dereased to around 70%. 
+
+{
+  "dev_acc": 0.698394495412844,
+  "dev_f1": 0.592248062015504,
+  "execution_time": 25.623455047607422,
+  "output": "Accuracy: 609 / 872 = 0.698394;\nPrecision (fraction of predicted positives that are correct): 191 / 201 = 0.950249;\nRecall (fraction of true positives predicted correctly): 191 / 444 = 0.430180;\nF1 (harmonic mean of precision and recall): 0.592248;\n"
+}
+
+3. c
+Random initialization of the embedding layer results in lower accuracy compared to GloVe, resulting in about 0.65. It seems like certain degree of learning is being done, but since the embeddings were random, the result was not optimal. 
+
+4. a
+P(dog|the) = 1/2
+P(cat|the) = 1/2
+P(a|the) = 0
+p(the|the) = 0
+
+b.
+vectors that would achieve A
+dog = [4,0]
+cat = [4,0]
+a = [0,4]
+the = [0,4]
+
+actual probabilities would be:
+P(dog|the) = (e^4) / (2e^4 + 2) 
+P(cat|the) = (e^4) / (2e^4 + 2) 
+P(a|the) = 1 / (2e^4 + 2) 
+P(the|the) = 1 / (2e^4 + 2) 
+
+
+5.a
+(the, dog)
+(dog, the)
+(the, cat)
+(cat, the)
+(a, dog)
+(dog, a)
+(a, cat)
+(cat, a)
+
+5.b
+Optimal probabilities(will state only "the" and "dog" because "a" is same with "the" and "cat" is same as "dog"):
+P(dog|the) = 1/2
+P(cat|the) = 1/2
+P(a|the) = 0
+P(the|the) = 0
+
+P(the|dog) = 1/2
+P(a|dog) = 1/2
+P(cat|dog) = 0
+P(dog|dog) = 0
+
+If the vectors are these:
+(in the order or v, c)
+cat, dog = [4, 0] [0, 1]
+a, the = [0, 4] [1, 0]
+P()
+
+
+6. 

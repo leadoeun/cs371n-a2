@@ -64,6 +64,8 @@ class NNModule(nn.Module):
         :return: an [out]-sized tensor of log probabilities. (In general your network can be set up to return either log
         probabilities or a tuple of (loss, log probability) if you want to pass in y to this function as well
         """
+        # print(self.V(x))
+        # print(self.W(self.g(self.V(x))).shape)
 
         return self.log_softmax(self.W(self.g(self.V(x)))) 
     
@@ -115,6 +117,11 @@ class NeuralSentimentClassifier(SentimentClassifier):
         x_temp = torch.LongTensor(x_temp)
         x_temp = self.embedding(x_temp)
         x_temp = x_temp.mean(dim=0)
+        # for i, word in enumerate(ex_words):
+        #     x_temp[i] = (self.word_embeddings.get_embedding(word)
+        
+        # x_temp = form_input(x_temp)
+
         
         log_probs = self.nn_module.forward(x_temp)
         return torch.argmax(log_probs)
@@ -129,6 +136,17 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
     :param word_embeddings: set of loaded word embeddings
     :return: A trained NeuralSentimentClassifier model
     """
+    # indexer = Indexer()
+    # for i, sentence in enumerate(train_exs):
+    #     for word in sentence.words:
+    #         if indexer.contains(word):
+    #             continue
+    #         else:
+    #             indexer.add_and_get_index(word)
+    
+
+    # inp = len(indexer)
+
 
     inp = 0
     if args.word_vecs_path == 'data/glove.6B.50d-relativized.txt':
@@ -136,49 +154,45 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
     else:
         inp = 300
 
-    epochs = 30
+    
+
+    epochs = 100
     learning_rate = 0.001
     embedding_size = 100
     num_class = 2
     batch_size = args.batch_size
+    
+    
 
     ffnn = NNModule(inp, embedding_size, num_class, word_embeddings)
     embedding = ffnn.init_embedding(word_embeddings)
+    # cal_loss = ffnn.get_loss()
+
+
+            
+    
+    
 
     optimizer = optim.Adam(ffnn.parameters(), lr=learning_rate)
+    # random.seed(1)
     for epoch in range(0, epochs):
         x = []
         y = []
         random.shuffle(train_exs)
-
-        for i in range(0, len(train_exs), batch_size):
+        
+        for i, sentence in enumerate(train_exs):
             x_temp = []
-            y_temp = []
-            max = 0
-            for j in range(0, batch_size):
-                if len(train_exs[i+j].words) > max:
-                    max = len(train_exs[i+j].words)
-            for j in range(0, batch_size):
-                batch_temp = []
-                sentence = train_exs[i+j]
-                for word in sentence.words:
-                    idx = word_embeddings.word_indexer.index_of(word)
-                    if idx == -1 :
-                        idx = word_embeddings.word_indexer.index_of("UNK")
-                    batch_temp.append(idx)
-                while len(batch_temp) < max:
-                    batch_temp.append(word_embeddings.word_indexer.index_of("PAD"))
-                x_temp.append(batch_temp)         
-                y_temp.append(sentence.label)
+            for word in sentence.words:
+                idx = word_embeddings.word_indexer.index_of(word)
+                if idx == -1 :
+                    idx = word_embeddings.word_indexer.index_of("UNK")
+                x_temp.append(idx)
             x_temp = torch.LongTensor(x_temp)
             x_temp = embedding(x_temp)
-            x_temp = torch.mean(x_temp, dim=1)
-            if batch_size==1:
-                x.append(x_temp[0])
-            else:
-                x.append(x_temp)
-            y.append(y_temp)
+            x.append(x_temp.mean(dim=0))
+            y.append(sentence.label)
 
+        
         tot_loss = 0.0
         for i in range(0, len(x)):
             
@@ -186,18 +200,15 @@ def train_deep_averaging_network(args, train_exs: List[SentimentExample], dev_ex
             cur_y = y[i]
 
 
-            y_onehot = torch.zeros((batch_size, num_class))
+            y_onehot = torch.zeros(num_class)
 
-            for j in range(0, batch_size):
-                y_onehot[j].scatter_(0, torch.from_numpy(np.asarray(cur_y[j],dtype=np.int64)), 1)
 
-            
-            
+            y_onehot.scatter_(0, torch.from_numpy(np.asarray(cur_y,dtype=np.int64)), 1)
+ 
             ffnn.zero_grad()
             log_probs = ffnn.forward(cur_x)
-            loss = torch.mean(torch.mul(torch.neg(log_probs), y_onehot))
+            loss = torch.neg(log_probs).dot(y_onehot)
 
-            
             tot_loss += loss
             loss.backward()
             optimizer.step()
